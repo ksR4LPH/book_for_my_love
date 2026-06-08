@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Книга для Зарин 📖</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&family=Dancing+Script:wght@500;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{
+  width:100%;height:100%;overflow:hidden;
+  background:radial-gradient(ellipse at 50% 40%,#1c0f00,#080400 80%);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:16px;touch-action:none;user-select:none;
+}
+
+#dust{position:fixed;inset:0;pointer-events:none;z-index:0;}
+#hint{
+  position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+  z-index:50;font-family:'Dancing Script',cursive;font-size:clamp(0.75rem,3.2vw,0.92rem);
+  letter-spacing:0.1em;color:rgba(200,160,70,0.6);text-align:center;pointer-events:none;
+  animation:hblink 2.5s ease-in-out infinite;text-shadow:0 1px 8px #000;
+}
+@keyframes hblink{0%,100%{opacity:0.35;}50%{opacity:1;}}
+
+#musicBtn{
+  position:fixed;top:16px;right:16px;z-index:300;width:40px;height:40px;border-radius:50%;
+  border:1px solid rgba(180,140,50,0.3);background:rgba(12,7,0,0.7);backdrop-filter:blur(8px);
+  display:flex;align-items:center;justify-content:center;font-size:1rem;cursor:pointer;transition:all 0.3s;
+}
+#musicBtn.playing{border-color:rgba(220,170,60,0.7);animation:mp 1.2s ease infinite;}
+@keyframes mp{0%,100%{box-shadow:0 0 0 0 rgba(220,170,60,0.4);}50%{box-shadow:0 0 0 8px rgba(220,170,60,0);}}
+
+/* PAGE INDICATOR */
+#pageInd{
+  position:relative;z-index:10;
+  display:flex;gap:7px;align-items:center;
+}
+.pdot{
+  width:7px;height:7px;border-radius:50%;
+  background:rgba(180,140,50,0.2);border:1px solid rgba(180,140,50,0.35);
+  transition:all 0.4s;
+}
+.pdot.active{background:rgba(220,180,70,0.85);border-color:rgba(220,180,70,0.9);box-shadow:0 0 7px rgba(220,180,70,0.5);}
+
+/* ===== BOOK ===== */
+#scene{
+  position:relative;z-index:10;
+  width:min(96vw,500px);
+  height:clamp(320px,60vh,480px);
+  perspective:1400px;
+}
+
+#book{
+  width:100%;height:100%;
+  position:relative;
+  transform-style:preserve-3d;
+  filter:drop-shadow(0 18px 45px rgba(0,0,0,0.9)) drop-shadow(0 0 25px rgba(160,100,20,0.1));
+}
+
+/* SPINE */
+#spine{
+  position:absolute;left:50%;top:0;bottom:0;
+  transform:translateX(-50%);
+  width:14px;z-index:30;
+  background:linear-gradient(90deg,#120800,#2a1400,#120800);
+  box-shadow:2px 0 8px rgba(0,0,0,0.7),-2px 0 8px rgba(0,0,0,0.7);
+}
+
+/* PAPER texture mixin */
+.paper{
+  background:linear-gradient(170deg,#f7eacc,#efe2b2,#f4e6c0,#ede0b0);
+}
+.paper::before{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background:
+    repeating-linear-gradient(transparent,transparent 27px,rgba(150,110,30,0.07) 27px,rgba(150,110,30,0.07) 28px),
+    radial-gradient(ellipse at 85% 15%,rgba(200,160,70,0.1),transparent 55%),
+    radial-gradient(ellipse at 15% 85%,rgba(180,130,40,0.08),transparent 55%);
+}
+
+/* LEFT PAGE */
+#leftPage{
+  position:absolute;left:0;top:0;width:50%;height:100%;
+  border-radius:8px 0 0 8px;
+  border:1px solid rgba(180,140,50,0.4);border-right:none;
+  overflow:hidden;
+  box-shadow:inset -5px 0 15px rgba(0,0,0,0.12);
+}
+
+/* RIGHT PAGE */
+#rightPage{
+  position:absolute;right:0;top:0;width:50%;height:100%;
+  border-radius:0 8px 8px 0;
+  border:1px solid rgba(180,140,50,0.4);border-left:none;
+  overflow:hidden;
+  box-shadow:inset 5px 0 15px rgba(0,0,0,0.1);
+}
+
+/* PAGE CONTENT */
+.pcontent{
+  position:absolute;inset:0;z-index:2;
+  padding:clamp(12px,3vw,22px) clamp(10px,2.8vw,18px);
+  display:flex;flex-direction:column;justify-content:center;
+  text-align:center;gap:0;
+}
+.pg-num{
+  font-family:'Dancing Script',cursive;
+  font-size:clamp(0.52rem,2vw,0.65rem);
+  color:rgba(120,80,15,0.35);letter-spacing:0.12em;
+  margin-bottom:clamp(5px,1.2vh,10px);text-align:right;
+}
+.pg-icon{font-size:clamp(1.1rem,4.5vw,1.6rem);margin-bottom:clamp(4px,1vh,9px);}
+.pg-title{
+  font-family:'Dancing Script',cursive;font-weight:700;
+  font-size:clamp(0.82rem,3.2vw,1.08rem);
+  margin-bottom:clamp(4px,1vh,9px);line-height:1.25;
+}
+.pg-line{width:32px;height:1px;margin:0 auto clamp(6px,1.4vh,12px);}
+.pg-text{
+  font-family:'Dancing Script',cursive;font-weight:500;
+  font-size:clamp(0.75rem,3vw,0.98rem);
+  line-height:1.75;
+}
+.pg-text p{margin-bottom:4px;}
+.pg-text .hi{font-weight:700;}
+
+/* FLIP PAGES — 3D rotating */
+.flipPage{
+  position:absolute;top:0;height:100%;width:50%;
+  transform-style:preserve-3d;
+  transform-origin:left center;
+  z-index:20;
+  transition:none;
+}
+.flipPage.right-flip{left:50%;transform-origin:left center;}
+.flipPage.left-flip{left:0;transform-origin:right center;}
+
+.fp-front,.fp-back{
+  position:absolute;inset:0;
+  backface-visibility:hidden;
+  overflow:hidden;
+}
+.fp-front{border-radius:0 8px 8px 0;border:1px solid rgba(180,140,50,0.4);border-left:none;}
+.fp-back{
+  border-radius:8px 0 0 8px;border:1px solid rgba(180,140,50,0.4);border-right:none;
+  transform:rotateY(180deg);
+}
+.fp-front::after{
+  content:'';position:absolute;left:0;top:0;bottom:0;width:20px;
+  background:linear-gradient(90deg,rgba(0,0,0,0.12),transparent);
+  pointer-events:none;z-index:3;
+}
+.fp-back::after{
+  content:'';position:absolute;right:0;top:0;bottom:0;width:20px;
+  background:linear-gradient(270deg,rgba(0,0,0,0.12),transparent);
+  pointer-events:none;z-index:3;
+}
+
+/* LETTER OVERLAY */
+#letterOverlay{
+  position:fixed;inset:0;z-index:500;
+  display:flex;align-items:center;justify-content:center;padding:18px;
+  background:rgba(4,2,0,0.96);backdrop-filter:blur(16px);
+  opacity:0;pointer-events:none;transition:opacity 0.8s ease;
+}
+#letterOverlay.show{opacity:1;pointer-events:all;}
+.lcard{
+  width:100%;max-width:390px;
+  background:linear-gradient(155deg,#f7eacc,#efe2b2,#f4e6c0);
+  border:1px solid rgba(180,140,50,0.4);border-radius:14px;
+  padding:clamp(22px,5vw,34px) clamp(20px,5vw,30px) clamp(18px,4vw,28px);
+  position:relative;overflow:hidden;
+  box-shadow:0 20px 70px rgba(0,0,0,0.8),0 0 0 1px rgba(180,140,50,0.1);
+  transform:scale(0.88) translateY(24px);transition:transform 0.65s cubic-bezier(.16,1,.3,1);
+}
+#letterOverlay.show .lcard{transform:scale(1) translateY(0);}
+.lcard::before{content:'';position:absolute;inset:0;pointer-events:none;
+  background:repeating-linear-gradient(transparent,transparent 27px,rgba(150,110,30,0.07) 27px,rgba(150,110,30,0.07) 28px);}
+.lcard::after{content:'';position:absolute;top:0;left:0;right:0;height:3px;
+  background:linear-gradient(90deg,transparent,rgba(180,130,40,0.6),rgba(220,170,60,0.9),rgba(180,130,40,0.6),transparent);}
+.lclose{position:absolute;top:12px;right:14px;background:transparent;border:none;
+  color:rgba(120,80,15,0.45);font-size:1.1rem;cursor:pointer;padding:4px 6px;line-height:1;transition:color 0.2s;}
+.lclose:hover{color:rgba(150,100,20,0.9);}
+.l-deco{text-align:center;font-size:clamp(1.5rem,6vw,2rem);margin-bottom:10px;}
+.l-name{font-family:'Dancing Script',cursive;font-weight:700;
+  font-size:clamp(1.2rem,5.2vw,1.65rem);color:rgba(100,60,5,0.9);text-align:center;margin-bottom:8px;}
+.l-div{width:48px;height:1px;background:linear-gradient(90deg,transparent,rgba(150,110,30,0.5),transparent);margin:0 auto 18px;}
+.l-body{font-family:'Dancing Script',cursive;font-weight:500;
+  font-size:clamp(0.95rem,4.2vw,1.12rem);line-height:1.85;color:rgba(80,50,5,0.78);text-align:center;}
+.l-body p{margin-bottom:12px;}
+.l-body p:last-child{margin-bottom:0;}
+.l-body .hi{font-weight:700;color:rgba(100,60,5,0.96);}
+.l-sig{text-align:right;margin-top:16px;font-family:'Dancing Script',cursive;font-weight:500;
+  font-size:clamp(0.78rem,3vw,0.92rem);color:rgba(120,80,15,0.5);}
+</style>
+</head>
+<body>
+<audio id="bgMusic" loop preload="auto"><source src="music.mp3" type="audio/mpeg"></audio><canvas id="dust"></canvas>
+<div id="musicBtn" onclick="toggleMusic()">🎵</div>
+<div id="hint">← Влево или вправо → чтобы листать</div>
+
+<div id="pageInd"></div>
+
+<div id="scene">
+  <div id="book">
+    <div id="spine"></div>
+    <!-- Static left & right pages (background) -->
+    <div id="leftPage" class="paper"><div class="pcontent" id="leftContent"></div></div>
+    <div id="rightPage" class="paper"><div class="pcontent" id="rightContent"></div></div>
+    <!-- Flip layer (draggable) -->
+    <div class="flipPage" id="flipEl">
+      <div class="fp-front paper"><div class="pcontent" id="fpFront"></div></div>
+      <div class="fp-back paper"><div class="pcontent" id="fpBack" style="transform:scaleX(-1)"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- LETTER -->
+<div id="letterOverlay">
+  <div class="lcard">
+    <!-- <button class="lclose" onclick="closeLetter()">✕</button> -->
+    <div class="l-deco">📖</div>
+    <div class="l-name">Зарин, моя любимая...</div>
+    <div class="l-div"></div>
+    <div class="l-body">
+      <p>Эта книга — лишь малая часть<br>того, что я чувствую к тебе.<br><span class="hi">Слов всегда не хватает.</span></p>
+      <p>Но знай одно —<br>каждый день рядом с тобой<br><span class="hi">лучший день в моей жизни.</span></p>
+      <p>Ты — моя любимая глава,<br>мой любимый человек.<br><span class="hi">Я люблю тебя, Зарин. 💛</span></p>
+    </div>
+    <div class="l-sig">— from r4lph to JK)❤️‍🔥</div>
+  </div>
+</div>
+
+<script>
+// ===== PAGES =====
+const pages=[
+  {icon:'📖',titleColor:'rgba(100,60,5,0.9)',title:'Эта книга —\nдля тебя',lineColor:'rgba(150,110,30,0.3)',textColor:'rgba(90,55,5,0.8)',hiColor:'rgba(70,40,2,0.96)',
+   text:['Я не умею дарить цветы','так красиво, как хотелось бы.','Поэтому я написал',{t:'целую книгу — только для тебя.',hi:true}]},
+  {icon:'🌅',titleColor:'rgba(160,80,10,0.9)',title:'Глава первая:\nУтро',lineColor:'rgba(160,80,10,0.3)',textColor:'rgba(110,60,8,0.8)',hiColor:'rgba(80,40,2,0.96)',
+   text:['Каждое утро я просыпаюсь','и первая мысль — о тебе.','Не о кофе, не о делах —',{t:'о тебе. Всегда о тебе.',hi:true}]},
+  {icon:'💫',titleColor:'rgba(60,80,170,0.9)',title:'Глава вторая:\nТвой свет',lineColor:'rgba(60,80,160,0.3)',textColor:'rgba(50,60,130,0.8)',hiColor:'rgba(40,50,120,0.96)',
+   text:['Ты — как звезда,','которая не знает,','что весь мир смотрит на неё.',{t:'А я смотрю только на тебя.',hi:true}]},
+  {icon:'🌿',titleColor:'rgba(30,110,50,0.9)',title:'Глава третья:\nРядом',lineColor:'rgba(30,110,50,0.3)',textColor:'rgba(20,80,30,0.8)',hiColor:'rgba(10,60,20,0.96)',
+   text:['Мне не нужно многого.','Просто чтобы ты была рядом —','молчать, смеяться, дышать.',{t:'С тобой даже тишина — счастье.',hi:true}]},
+  {icon:'💗',titleColor:'rgba(180,30,70,0.9)',title:'Глава четвёртая:\nПризнание',lineColor:'rgba(180,30,70,0.3)',textColor:'rgba(140,20,50,0.8)',hiColor:'rgba(110,10,35,0.96)',
+   text:['Я не говорю этого часто.','Но сегодня скажу прямо:','ты — самое лучшее,',{t:'что случилось со мной.',hi:true}]},
+  {icon:'🕊️',titleColor:'rgba(90,70,180,0.9)',title:'Глава пятая:\nОбещание',lineColor:'rgba(90,70,180,0.3)',textColor:'rgba(70,55,150,0.8)',hiColor:'rgba(55,40,130,0.96)',
+   text:['Я обещаю быть рядом —','когда смешно и когда сложно,','когда всё хорошо и нет.',{t:'Просто — всегда рядом.',hi:true}]},
+  {icon:'✨',titleColor:'rgba(130,90,5,0.9)',title:'Эпилог',lineColor:'rgba(130,90,5,0.3)',textColor:'rgba(100,70,5,0.8)',hiColor:'rgba(80,55,2,0.96)',
+   text:['Эта книга не закончится.','Потому что наша история',{t:'ещё только начинается.',hi:true},{t:'— с любовью, твой 📖',hi:false,small:true}]},
+];
+
+const TOTAL=pages.length; // 7 pages = spreads: 0-1, 1-2, 2-3, 3-4, 4-5, 5-6
+// spread index: left=pages[spread], right=pages[spread+1]
+let spread=0; // 0..TOTAL-2
+let isAnimating=false;
+
+// ===== RENDER =====
+function renderContent(data,el){
+  if(!data){el.innerHTML='';return;}
+  const lines=data.title.split('\n');
+  const txt=data.text.map(item=>{
+    if(typeof item==='string') return `<p style="color:${data.textColor}">${item}</p>`;
+    const s=item.small?`font-size:0.82em;opacity:0.55;margin-top:5px;`:'';
+    return item.hi
+      ?`<p style="${s}"><span class="hi" style="color:${data.hiColor}">${item.t}</span></p>`
+      :`<p style="${s}color:${data.textColor}">${item.t}</p>`;
+  }).join('');
+  el.innerHTML=`
+    <div class="pg-icon">${data.icon}</div>
+    <div class="pg-title" style="color:${data.titleColor}">${lines.join('<br>')}</div>
+    <div class="pg-line" style="background:linear-gradient(90deg,transparent,${data.lineColor},transparent)"></div>
+    <div class="pg-text">${txt}</div>
+  `;
+}
+
+function updateDisplay(){
+  renderContent(pages[spread],   document.getElementById('leftContent'));
+  renderContent(pages[spread+1], document.getElementById('rightContent'));
+  updateDots();
+  updateHint();
+}
+
+// dots
+function updateDots(){
+  const c=document.getElementById('pageInd');
+  if(c.children.length!==TOTAL){
+    c.innerHTML='';
+    for(let i=0;i<TOTAL;i++){const d=document.createElement('div');d.className='pdot';c.appendChild(d);}
+  }
+  Array.from(c.children).forEach((d,i)=>{
+    d.classList.toggle('active', i===spread||i===spread+1);
+  });
+}
+
+function updateHint(){
+  const h=document.getElementById('hint');
+  const canNext=spread<TOTAL-2;
+  const canPrev=spread>0;
+  if(!canNext&&!canPrev) h.textContent='';
+  else if(!canNext) h.textContent='← Листай назад';
+  else if(!canPrev) h.textContent='Тяни вправо → чтобы листать';
+  else h.textContent='← Влево или вправо → чтобы листать';
+}
+
+// ===== FLIP FORWARD (right page flips to left) =====
+function flipForward(cb){
+  const fl=document.getElementById('flipEl');
+  // front = current right page, back = next right page
+  renderContent(pages[spread+1], document.getElementById('fpFront'));
+  renderContent(pages[spread+2]||null, document.getElementById('fpBack'));
+
+  fl.className='flipPage right-flip';
+  fl.style.left='50%';
+  fl.style.transformOrigin='left center';
+  fl.style.transform='rotateY(0deg)';
+
+  requestAnimationFrame(()=>{
+    fl.style.transition='transform 0.55s cubic-bezier(.4,0,.2,1)';
+    fl.style.transform='rotateY(-180deg)';
+  });
+  setTimeout(()=>{
+    spread++;
+    fl.style.transition='none';
+    fl.style.transform='rotateY(0deg)';
+    fl.style.left='-100%'; // hide
+    updateDisplay();
+    isAnimating=false;
+    if(spread===TOTAL-2) setTimeout(closeBook,400);
+    if(cb) cb();
+  },560);
+}
+
+// ===== FLIP BACKWARD (left page flips to right) =====
+function flipBackward(cb){
+  const fl=document.getElementById('flipEl');
+  // front = current left page (will flip right), back = prev left page
+  renderContent(pages[spread], document.getElementById('fpFront'));
+  renderContent(pages[spread-1]||null, document.getElementById('fpBack'));
+
+  fl.className='flipPage left-flip';
+  fl.style.left='0';
+  fl.style.transformOrigin='right center';
+  fl.style.transform='rotateY(0deg)';
+
+  requestAnimationFrame(()=>{
+    fl.style.transition='transform 0.55s cubic-bezier(.4,0,.2,1)';
+    fl.style.transform='rotateY(180deg)';
+  });
+  setTimeout(()=>{
+    spread--;
+    fl.style.transition='none';
+    fl.style.transform='rotateY(0deg)';
+    fl.style.left='-100%';
+    updateDisplay();
+    isAnimating=false;
+    if(cb) cb();
+  },560);
+}
+
+// ===== CLOSE BOOK =====
+function closeBook(){
+  const book=document.getElementById('book');
+  book.style.transition='transform 0.9s cubic-bezier(.4,0,.2,1),filter 0.9s,opacity 0.8s';
+  book.style.transform='rotateY(-90deg) scale(0.8)';
+  book.style.filter='drop-shadow(0 10px 20px rgba(0,0,0,0.9)) brightness(0.2)';
+  book.style.opacity='0';
+  document.getElementById('hint').textContent='';
+  setTimeout(openLetter,800);
+}
+
+// ===== DRAG =====
+let dragStartX=0,dragDir=0,dragging=false;
+const scene=document.getElementById('scene');
+
+function onStart(x){
+  if(isAnimating) return;
+  dragging=true;dragStartX=x;dragDir=0;
+  playMusic();
+}
+function onMove(x){
+  if(!dragging||isAnimating) return;
+  dragDir=x-dragStartX;
+}
+function onEnd(){
+  if(!dragging||isAnimating) return;
+  dragging=false;
+  const threshold=40;
+  if(dragDir<-threshold && spread<TOTAL-2){isAnimating=true;flipForward();}
+  else if(dragDir>threshold && spread>0){isAnimating=true;flipBackward();}
+}
+
+scene.addEventListener('mousedown',e=>{onStart(e.clientX);});
+window.addEventListener('mousemove',e=>{onMove(e.clientX);});
+window.addEventListener('mouseup',onEnd);
+scene.addEventListener('touchstart',e=>{onStart(e.touches[0].clientX);},{passive:true});
+window.addEventListener('touchmove',e=>{onMove(e.touches[0].clientX);},{passive:true});
+window.addEventListener('touchend',onEnd,{passive:true});
+
+// keyboard
+window.addEventListener('keydown',e=>{
+  if(isAnimating) return;
+  if((e.key==='ArrowRight'||e.key==='ArrowDown') && spread<TOTAL-2){isAnimating=true;flipForward();}
+  if((e.key==='ArrowLeft'||e.key==='ArrowUp') && spread>0){isAnimating=true;flipBackward();}
+});
+
+// ===== LETTER =====
+function openLetter(){document.getElementById('letterOverlay').classList.add('show');}
+function closeLetter(){document.getElementById('letterOverlay').classList.remove('show');}
+document.getElementById('letterOverlay').addEventListener('click',e=>{
+  if(e.target===document.getElementById('letterOverlay')) closeLetter();
+});
+
+// ===== DUST =====
+const dc=document.getElementById('dust'),dctx=dc.getContext('2d');
+let DW,DH,dt=0;
+function dresz(){DW=dc.width=window.innerWidth;DH=dc.height=window.innerHeight;}
+dresz();window.addEventListener('resize',dresz);
+const dust=Array.from({length:28},()=>({
+  x:Math.random(),y:Math.random(),
+  vx:(Math.random()-0.5)*0.00014,vy:-(0.00007+Math.random()*0.0001),
+  r:0.6+Math.random()*1.3,alpha:0.07+Math.random()*0.2,phase:Math.random()*Math.PI*2
+}));
+(function dustLoop(){
+  dt+=0.012;dctx.clearRect(0,0,DW,DH);
+  dust.forEach(d=>{
+    d.x+=d.vx;d.y+=d.vy;
+    if(d.y<-0.02){d.y=1.02;d.x=Math.random();}
+    if(d.x<0||d.x>1)d.vx*=-1;
+    const a=d.alpha*(0.5+0.5*Math.sin(d.phase+dt));
+    dctx.save();dctx.globalAlpha=a;
+    dctx.shadowBlur=4;dctx.shadowColor='rgba(220,180,80,0.5)';
+    dctx.fillStyle='rgba(220,180,80,0.85)';
+    dctx.beginPath();dctx.arc(d.x*DW,d.y*DH,d.r,0,Math.PI*2);dctx.fill();
+    dctx.restore();
+  });
+  requestAnimationFrame(dustLoop);
+})();
+
+// ===== MUSIC =====
+let musicPlaying=false;
+function playMusic(){
+  if(musicPlaying)return;
+  document.getElementById('bgMusic').play().then(()=>{
+    document.getElementById('musicBtn').classList.add('playing');
+    document.getElementById('musicBtn').textContent='🎶';
+    musicPlaying=true;
+  }).catch(()=>{});
+}
+function toggleMusic(){
+  const m=document.getElementById('bgMusic'),b=document.getElementById('musicBtn');
+  if(musicPlaying){m.pause();b.classList.remove('playing');b.textContent='🎵';musicPlaying=false;}
+  else{m.play().then(()=>{b.classList.add('playing');b.textContent='🎶';musicPlaying=true;}).catch(()=>{});}
+}
+
+// ===== INIT =====
+// hide flip initially
+const fl=document.getElementById('flipEl');
+fl.style.left='-100%';
+updateDisplay();
+</script>
+</body>
+</html>
